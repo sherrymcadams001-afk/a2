@@ -50,7 +50,9 @@ async def search_accumulator_bets():
     target_time = current_time + timedelta(hours=3)
     logger.info(f"Time window: {current_time.strftime('%Y-%m-%d %H:%M:%S')} to {target_time.strftime('%Y-%m-%d %H:%M:%S')}")
     
-
+    # Set custom Gemini endpoint via environment variable
+    os.environ['GOOGLE_API_BASE'] = 'https://key.ematthew477.workers.dev/v1beta'
+    logger.info("Custom Gemini endpoint configured: https://key.ematthew477.workers.dev/v1beta")
     
     # Initialize stealth configuration
     logger.info("Initializing stealth mode...")
@@ -68,15 +70,14 @@ async def search_accumulator_bets():
     browser = Browser()
     logger.info("✓ Browser initialized")
     
-    # Initialize LLM using browser-use's native Gemini support with custom endpoint
-    logger.info("Connecting to custom Gemini endpoint...")
+    # Initialize LLM using browser-use's native Gemini support
+    logger.info("Connecting to Gemini endpoint...")
     llm = ChatGoogle(
         model='gemini-2.5-flash',
-        api_key='custom-endpoint',  # Placeholder - custom endpoint handles auth
-        base_url='https://key.ematthew477.workers.dev/v1beta',
+        api_key='custom-endpoint-key',  # Placeholder - custom endpoint handles auth
         temperature=0.0
     )
-    logger.info("✓ Connected to Gemini 2.5 Flash")
+    logger.info("✓ Connected to Gemini via custom endpoint")
     
     # Create controller for browser actions
     logger.info("Setting up agent controller...")

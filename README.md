@@ -21,7 +21,7 @@ This repository contains a GitHub Actions workflow that runs a browser-use agent
 
 #### Prerequisites
 
-1. **Gemini API Key**: The workflow uses Google's Gemini 2.5 Flash Preview model for the LLM orchestration
+1. **Gemini API Key**: The workflow uses Google's Gemini 2.5 Flash model for the LLM orchestration
 2. **GitHub Repository Secret**: Add your Gemini API key as a repository secret named `GEMINI_API_KEY`
 
 #### Adding the API Key
@@ -105,7 +105,7 @@ Each log file contains:
 
 - **Python Version**: 3.11
 - **Browser**: Chromium (installed via Playwright)
-- **LLM**: Google Gemini 2.5 Flash Preview (via native browser-use ChatGoogle integration)
+- **LLM**: Google Gemini 2.5 Flash (via native browser-use ChatGoogle integration)
 - **API Endpoint**: Custom Gemini mirror at https://key.ematthew477.workers.dev
 - **Framework**: browser-use with native Gemini support
 - **Stealth System**: Computational psychology & behavioral biometrics (Agent: Silus)

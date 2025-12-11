@@ -80,12 +80,12 @@ async def search_accumulator_bets():
     # Initialize LLM using browser-use's native Gemini support with custom endpoint
     logger.info("Connecting to Gemini API...")
     llm = ChatGoogle(
-        model='gemini-2.5-flash-preview-05-20',
+        model='gemini-2.5-flash',
         api_key=api_key,
         base_url='https://key.ematthew477.workers.dev/v1beta',
         temperature=0.0
     )
-    logger.info("✓ Connected to Gemini 2.5 Flash Preview")
+    logger.info("✓ Connected to Gemini 2.5 Flash")
     
     # Create controller for browser actions
     logger.info("Setting up agent controller...")

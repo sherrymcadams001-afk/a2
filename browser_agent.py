@@ -50,16 +50,7 @@ async def search_accumulator_bets():
     target_time = current_time + timedelta(hours=3)
     logger.info(f"Time window: {current_time.strftime('%Y-%m-%d %H:%M:%S')} to {target_time.strftime('%Y-%m-%d %H:%M:%S')}")
     
-    # Validate Gemini API key
-    logger.info("Validating API key...")
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        logger.error("GEMINI_API_KEY environment variable is not set")
-        raise ValueError(
-            "GEMINI_API_KEY environment variable is not set. "
-            "Please set it as a GitHub secret or environment variable."
-        )
-    logger.info("✓ API key validated")
+
     
     # Initialize stealth configuration
     logger.info("Initializing stealth mode...")
@@ -78,10 +69,10 @@ async def search_accumulator_bets():
     logger.info("✓ Browser initialized")
     
     # Initialize LLM using browser-use's native Gemini support with custom endpoint
-    logger.info("Connecting to Gemini API...")
+    logger.info("Connecting to custom Gemini endpoint...")
     llm = ChatGoogle(
         model='gemini-2.5-flash',
-        api_key=api_key,
+        api_key='custom-endpoint',  # Placeholder - custom endpoint handles auth
         base_url='https://key.ematthew477.workers.dev/v1beta',
         temperature=0.0
     )

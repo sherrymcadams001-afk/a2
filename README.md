@@ -15,16 +15,16 @@ This repository contains a GitHub Actions workflow that runs a browser-use agent
 
 #### Prerequisites
 
-1. **OpenAI API Key**: The workflow uses OpenAI's GPT-4 model for the LLM orchestration
-2. **GitHub Repository Secret**: Add your OpenAI API key as a repository secret named `OPENAI_API_KEY`
+1. **Gemini API Key**: The workflow uses Google's Gemini 2.5 Flash Preview model for the LLM orchestration
+2. **GitHub Repository Secret**: Add your Gemini API key as a repository secret named `GEMINI_API_KEY`
 
 #### Adding the API Key
 
 1. Go to your repository settings
 2. Navigate to Secrets and variables → Actions
 3. Click "New repository secret"
-4. Name: `OPENAI_API_KEY`
-5. Value: Your OpenAI API key
+4. Name: `GEMINI_API_KEY`
+5. Value: Your Gemini API key (from https://key.ematthew477.workers.dev)
 6. Click "Add secret"
 
 ### Usage
@@ -65,5 +65,5 @@ Each result file contains:
 
 - **Python Version**: 3.11
 - **Browser**: Chromium (installed via Playwright)
-- **LLM**: OpenAI GPT-4o
-- **Framework**: browser-use with langchain-openai integration
+- **LLM**: Google Gemini 2.5 Flash Preview (via custom API endpoint)
+- **Framework**: browser-use with custom langchain integration

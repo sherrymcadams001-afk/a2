@@ -5,9 +5,83 @@ Browser-use agent to check Bing for "mstchrd" occurring in the next three hours.
 import asyncio
 import os
 import json
+import requests
 from datetime import datetime, timedelta
 from browser_use import Agent, Browser, Controller
-from langchain_openai import ChatOpenAI
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
+from langchain_core.outputs import ChatResult, ChatGeneration
+
+
+class GeminiChatModel(BaseChatModel):
+    """Custom LangChain chat model for Gemini API."""
+    
+    api_url: str = "https://key.ematthew477.workers.dev/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent"
+    api_key: str = ""
+    temperature: float = 0.0
+    
+    def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+        """Generate a response from the Gemini API."""
+        # Convert messages to Gemini format
+        contents = []
+        for msg in messages:
+            if isinstance(msg, HumanMessage):
+                contents.append({
+                    "role": "user",
+                    "parts": [{"text": msg.content}]
+                })
+            elif isinstance(msg, AIMessage):
+                contents.append({
+                    "role": "model",
+                    "parts": [{"text": msg.content}]
+                })
+        
+        # Prepare the payload
+        payload = {
+            "contents": contents,
+            "generationConfig": {
+                "temperature": self.temperature,
+                "topK": 40,
+                "topP": 0.95,
+                "maxOutputTokens": 8192
+            }
+        }
+        
+        # Make the API request
+        headers = {
+            "Content-Type": "application/json"
+        }
+        
+        response = requests.post(
+            self.api_url,
+            headers=headers,
+            json=payload,
+            timeout=60
+        )
+        response.raise_for_status()
+        
+        # Parse the response
+        result = response.json()
+        text = result.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+        
+        # Return in LangChain format
+        message = AIMessage(content=text)
+        generation = ChatGeneration(message=message)
+        return ChatResult(generations=[generation])
+    
+    @property
+    def _llm_type(self):
+        """Return identifier for the LLM type."""
+        return "gemini-chat"
+    
+    @property
+    def _identifying_params(self):
+        """Return identifying parameters."""
+        return {
+            "api_url": self.api_url,
+            "temperature": self.temperature
+        }
+
 
 async def search_bing_for_mstchrd():
     """
@@ -18,22 +92,21 @@ async def search_bing_for_mstchrd():
     current_time = datetime.now()
     target_time = current_time + timedelta(hours=3)
     
-    # Validate OpenAI API key
-    api_key = os.environ.get("OPENAI_API_KEY")
+    # Validate Gemini API key
+    api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise ValueError(
-            "OPENAI_API_KEY environment variable is not set. "
+            "GEMINI_API_KEY environment variable is not set. "
             "Please set it as a GitHub secret or environment variable."
         )
     
     # Initialize browser
     browser = Browser()
     
-    # Initialize LLM (using OpenAI, but can be configured for other providers)
-    llm = ChatOpenAI(
-        model="gpt-4o",
-        temperature=0.0,
-        api_key=api_key
+    # Initialize LLM (using Gemini API)
+    llm = GeminiChatModel(
+        api_key=api_key,
+        temperature=0.0
     )
     
     # Create controller for browser actions

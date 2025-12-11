@@ -1,0 +1,5 @@
+browser-use>=0.1.45
+google-generativeai>=0.3.0
+playwright>=1.40.0
+numpy>=1.24.0
+scipy>=1.10.0

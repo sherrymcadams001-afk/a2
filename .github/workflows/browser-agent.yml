@@ -46,8 +46,8 @@ jobs:
       run: |
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
-        # Only add JSON result files that were just created
-        RESULT_FILES=$(find . -maxdepth 1 -name "results_*.json" -type f -mmin -5)
+        # Only add JSON result files that were just created (within last 15 minutes to be safe)
+        RESULT_FILES=$(find . -maxdepth 1 -name "results_*.json" -type f -mmin -15)
         if [ -n "$RESULT_FILES" ]; then
           echo "$RESULT_FILES" | xargs git add
           git commit -m "Add browser agent results - $(date -u '+%Y-%m-%d %H:%M:%S UTC')"

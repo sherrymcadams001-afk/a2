@@ -18,6 +18,14 @@ async def search_bing_for_mstchrd():
     current_time = datetime.now()
     target_time = current_time + timedelta(hours=3)
     
+    # Validate OpenAI API key
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError(
+            "OPENAI_API_KEY environment variable is not set. "
+            "Please set it as a GitHub secret or environment variable."
+        )
+    
     # Initialize browser
     browser = Browser()
     
@@ -25,7 +33,7 @@ async def search_bing_for_mstchrd():
     llm = ChatOpenAI(
         model="gpt-4o",
         temperature=0.0,
-        api_key=os.environ.get("OPENAI_API_KEY")
+        api_key=api_key
     )
     
     # Create controller for browser actions
@@ -55,14 +63,26 @@ async def search_bing_for_mstchrd():
         history = await agent.run()
         
         # Extract relevant information from history
-        history_data = []
-        if hasattr(history, '__iter__'):
-            for item in history:
-                history_data.append({
-                    "action": str(item) if hasattr(item, '__str__') else repr(item)
-                })
-        else:
-            history_data.append({"result": str(history)})
+        # The browser-use agent returns a history object that may vary in structure
+        # We'll safely extract what we can and preserve the raw data
+        history_data = {
+            "raw_history": str(history),
+            "type": type(history).__name__
+        }
+        
+        # Try to extract final result if available
+        if hasattr(history, 'final_result'):
+            try:
+                history_data["final_result"] = str(history.final_result())
+            except Exception:
+                pass
+        
+        # Try to extract individual actions if iterable
+        if hasattr(history, '__iter__') and not isinstance(history, str):
+            try:
+                history_data["actions"] = [str(item) for item in history]
+            except Exception:
+                pass
         
         # Prepare results
         results = {
@@ -73,7 +93,6 @@ async def search_bing_for_mstchrd():
                 "to": target_time.isoformat()
             },
             "agent_history": history_data,
-            "final_result": str(history.final_result()) if hasattr(history, 'final_result') else None,
             "status": "completed"
         }
         

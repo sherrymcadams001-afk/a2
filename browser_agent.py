@@ -15,17 +15,21 @@ from stealth import create_stealth_config
 # Configuration constants
 PRIMARY_SOURCE_URL = "olbg.com"
 PRIMARY_SOURCE_NAME = "OLBG"
+MAX_ACTIONS_TO_LOG = 10  # Limit number of actions logged to avoid excessive output
 
 # Configure detailed logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler(f'agent_log_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log')
-    ]
-)
-logger = logging.getLogger(__name__)
+def setup_logging():
+    """Set up logging with timestamped filename"""
+    log_filename = f'agent_log_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler(sys.stdout),
+            logging.FileHandler(log_filename)
+        ]
+    )
+    return logging.getLogger(__name__)
 
 
 async def search_accumulator_bets():
@@ -34,6 +38,9 @@ async def search_accumulator_bets():
     Uses OLBG as the main aggregator source with stealth mode enabled.
     Returns the search results and saves them to a file.
     """
+    # Set up logging with current timestamp
+    logger = setup_logging()
+    
     logger.info("="*80)
     logger.info("STARTING ACCUMULATOR BET SEARCH AGENT")
     logger.info("="*80)
@@ -184,12 +191,20 @@ async def search_accumulator_bets():
             try:
                 actions = [str(item) for item in history]
                 history_data["actions"] = actions
-                logger.info(f"Extracted {len(actions)} actions from history")
+                total_actions = len(actions)
+                logger.info(f"Extracted {total_actions} actions from history")
                 
-                # Log each action for detailed insight
-                for idx, action in enumerate(actions, 1):
-                    action_preview = action[:200] + "..." if len(action) > 200 else action
-                    logger.info(f"  Action {idx}: {action_preview}")
+                # Log a limited number of actions for insight without excessive output
+                actions_to_log = min(total_actions, MAX_ACTIONS_TO_LOG)
+                if actions_to_log > 0:
+                    logger.info(f"Logging first {actions_to_log} of {total_actions} actions:")
+                    for idx in range(actions_to_log):
+                        action = actions[idx]
+                        action_preview = action[:200] + "..." if len(action) > 200 else action
+                        logger.info(f"  Action {idx+1}: {action_preview}")
+                    
+                    if total_actions > MAX_ACTIONS_TO_LOG:
+                        logger.info(f"  ... and {total_actions - MAX_ACTIONS_TO_LOG} more actions (see JSON for full history)")
             except Exception as e:
                 logger.warning(f"Could not extract actions: {e}")
         

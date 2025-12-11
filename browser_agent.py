@@ -34,13 +34,13 @@ async def search_bing_for_mstchrd():
     # Define the search task
     task = f"""
     Go to Bing.com and search for "mstchrd" with time filter for the next 3 hours.
-    Find all relevant results and extract:
+    Find all relevant results and extract the following information for each result:
     1. Title of each result
     2. URL of each result
     3. Brief description/snippet
     4. Timestamp if available
     
-    Return the information in a structured format.
+    Collect all results and note the total count.
     """
     
     try:
@@ -54,6 +54,16 @@ async def search_bing_for_mstchrd():
         
         history = await agent.run()
         
+        # Extract relevant information from history
+        history_data = []
+        if hasattr(history, '__iter__'):
+            for item in history:
+                history_data.append({
+                    "action": str(item) if hasattr(item, '__str__') else repr(item)
+                })
+        else:
+            history_data.append({"result": str(history)})
+        
         # Prepare results
         results = {
             "timestamp": current_time.isoformat(),
@@ -62,7 +72,8 @@ async def search_bing_for_mstchrd():
                 "from": current_time.isoformat(),
                 "to": target_time.isoformat()
             },
-            "agent_history": str(history),
+            "agent_history": history_data,
+            "final_result": str(history.final_result()) if hasattr(history, 'final_result') else None,
             "status": "completed"
         }
         

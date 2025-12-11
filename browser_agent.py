@@ -1,114 +1,17 @@
 #!/usr/bin/env python3
 """
-Browser-use agent to check Bing for "mstchrd" occurring in the next three hours.
+Browser-use agent to find top accumulator bet matches with least risk occurring within 3 hours.
 """
 import asyncio
 import os
 import json
-import requests
 from datetime import datetime, timedelta
-from browser_use import Agent, Browser, Controller
-from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
-from langchain_core.outputs import ChatResult, ChatGeneration
+from browser_use import Agent, Browser, Controller, ChatGoogle
 
 
-class GeminiChatModel(BaseChatModel):
-    """Custom LangChain chat model for Gemini API via custom endpoint."""
-    
-    api_url: str = "https://key.ematthew477.workers.dev/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent"
-    api_key: str = ""
-    temperature: float = 0.0
-    
-    def __init__(self, api_key: str = "", temperature: float = 0.0, **kwargs):
-        """Initialize the Gemini chat model."""
-        super().__init__(**kwargs)
-        self.api_key = api_key
-        self.temperature = temperature
-    
-    def _generate(self, messages, stop=None, run_manager=None, **kwargs):
-        """Generate a response from the Gemini API."""
-        # Convert messages to Gemini format
-        contents = []
-        for msg in messages:
-            if isinstance(msg, HumanMessage):
-                contents.append({
-                    "role": "user",
-                    "parts": [{"text": msg.content}]
-                })
-            elif isinstance(msg, AIMessage):
-                contents.append({
-                    "role": "model",
-                    "parts": [{"text": msg.content}]
-                })
-        
-        # Prepare the payload
-        payload = {
-            "contents": contents,
-            "generationConfig": {
-                "temperature": self.temperature,
-                "topK": 40,
-                "topP": 0.95,
-                "maxOutputTokens": 8192
-            }
-        }
-        
-        # Make the API request with authentication if key is provided
-        headers = {
-            "Content-Type": "application/json"
-        }
-        
-        # Add API key to headers if provided (custom endpoint may handle auth differently)
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
-        
-        response = requests.post(
-            self.api_url,
-            headers=headers,
-            json=payload,
-            timeout=60
-        )
-        response.raise_for_status()
-        
-        # Parse the response with proper error handling
-        result = response.json()
-        
-        # Safely extract text from response
-        candidates = result.get("candidates", [])
-        if not candidates:
-            raise ValueError("No candidates returned from Gemini API")
-        
-        content = candidates[0].get("content", {})
-        parts = content.get("parts", [])
-        if not parts:
-            raise ValueError("No parts in response content")
-        
-        text = parts[0].get("text", "")
-        if not text:
-            raise ValueError("Empty text in response")
-        
-        # Return in LangChain format
-        message = AIMessage(content=text)
-        generation = ChatGeneration(message=message)
-        return ChatResult(generations=[generation])
-    
-    @property
-    def _llm_type(self):
-        """Return identifier for the LLM type."""
-        return "gemini-chat"
-    
-    @property
-    def _identifying_params(self):
-        """Return identifying parameters."""
-        return {
-            "api_url": self.api_url,
-            "temperature": self.temperature
-        }
-
-
-async def search_bing_for_mstchrd():
+async def search_accumulator_bets():
     """
-    Use browser-use agent to search Bing for "mstchrd" in the next three hours.
+    Use browser-use agent to find top accumulator bet matches with least risk within 3 hours.
     Returns the search results and saves them to a file.
     """
     # Get current time and target time window
@@ -126,25 +29,35 @@ async def search_bing_for_mstchrd():
     # Initialize browser
     browser = Browser()
     
-    # Initialize LLM (using Gemini API)
-    llm = GeminiChatModel(
+    # Initialize LLM using browser-use's native Gemini support with custom endpoint
+    llm = ChatGoogle(
+        model='gemini-2.5-flash-preview-05-20',
         api_key=api_key,
+        base_url='https://key.ematthew477.workers.dev/v1beta',
         temperature=0.0
     )
     
     # Create controller for browser actions
     controller = Controller()
     
-    # Define the search task
+    # Define the search task for accumulator bets
     task = f"""
-    Go to Bing.com and search for "mstchrd" with time filter for the next 3 hours.
-    Find all relevant results and extract the following information for each result:
-    1. Title of each result
-    2. URL of each result
-    3. Brief description/snippet
-    4. Timestamp if available
+    Go to Bing.com and search for top accumulator bet matches with the least risk occurring within the next 3 hours.
     
-    Collect all results and note the total count.
+    Your goal is to find football/soccer matches that are:
+    1. Starting within the next 3 hours (from {current_time.strftime('%H:%M')} to {target_time.strftime('%H:%M')})
+    2. Have low risk factors (favorites with high probability of winning)
+    3. Suitable for accumulator betting
+    
+    For each match found, extract:
+    1. Match name (Team A vs Team B)
+    2. Start time
+    3. Recommended bet type (e.g., Home Win, Over/Under)
+    4. Odds if available
+    5. Risk assessment (Low/Medium/High)
+    6. Source URL
+    
+    Organize the results by risk level (lowest risk first) and limit to top 5 matches.
     """
     
     try:
@@ -183,7 +96,7 @@ async def search_bing_for_mstchrd():
         # Prepare results
         results = {
             "timestamp": current_time.isoformat(),
-            "search_term": "mstchrd",
+            "search_type": "accumulator_bets",
             "time_window": {
                 "from": current_time.isoformat(),
                 "to": target_time.isoformat()
@@ -203,7 +116,7 @@ async def search_bing_for_mstchrd():
     except Exception as e:
         error_results = {
             "timestamp": current_time.isoformat(),
-            "search_term": "mstchrd",
+            "search_type": "accumulator_bets",
             "status": "error",
             "error": str(e)
         }
@@ -221,4 +134,4 @@ async def search_bing_for_mstchrd():
         await browser.close()
 
 if __name__ == "__main__":
-    asyncio.run(search_bing_for_mstchrd())
+    asyncio.run(search_accumulator_bets())

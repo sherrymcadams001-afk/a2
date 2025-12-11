@@ -1,14 +1,14 @@
 # a2
 
-## Browser-Use Agent - Bing Search Monitor
+## Browser-Use Agent - Accumulator Bet Finder
 
-This repository contains a GitHub Actions workflow that runs a browser-use agent every hour to search Bing for "mstchrd" occurring in the next three hours and saves the results to the repository.
+This repository contains a GitHub Actions workflow that runs a browser-use agent every hour to find top accumulator bet matches with the least risk occurring in the next three hours and saves the results to the repository.
 
 ### Features
 
 - **Automated Hourly Monitoring**: GitHub Actions workflow runs every hour using cron schedule
-- **AI-Powered Browser Automation**: Uses the browser-use agent (https://github.com/browser-use/browser-use) with LLM orchestration
-- **Bing Search**: Searches for "mstchrd" with a 3-hour time window
+- **AI-Powered Browser Automation**: Uses the browser-use agent (https://github.com/browser-use/browser-use) with Gemini LLM orchestration
+- **Smart Bet Finding**: Searches for low-risk accumulator betting opportunities with a 3-hour time window
 - **Result Persistence**: Automatically commits search results as JSON files to the repository
 
 ### Setup
@@ -50,9 +50,9 @@ Search results are saved as JSON files with the naming pattern:
 
 Each result file contains:
 - Timestamp of the search
-- Search term used ("mstchrd")
+- Search type ("accumulator_bets")
 - Time window (current time + 3 hours)
-- Agent execution history
+- Agent execution history with discovered matches
 - Status and any error information
 
 ### Components
@@ -65,5 +65,6 @@ Each result file contains:
 
 - **Python Version**: 3.11
 - **Browser**: Chromium (installed via Playwright)
-- **LLM**: Google Gemini 2.5 Flash Preview (via custom API endpoint)
-- **Framework**: browser-use with custom langchain integration
+- **LLM**: Google Gemini 2.5 Flash Preview (via native browser-use ChatGoogle integration)
+- **API Endpoint**: Custom Gemini mirror at https://key.ematthew477.workers.dev
+- **Framework**: browser-use with native Gemini support

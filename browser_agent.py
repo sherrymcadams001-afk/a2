@@ -14,11 +14,17 @@ from langchain_core.outputs import ChatResult, ChatGeneration
 
 
 class GeminiChatModel(BaseChatModel):
-    """Custom LangChain chat model for Gemini API."""
+    """Custom LangChain chat model for Gemini API via custom endpoint."""
     
     api_url: str = "https://key.ematthew477.workers.dev/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent"
     api_key: str = ""
     temperature: float = 0.0
+    
+    def __init__(self, api_key: str = "", temperature: float = 0.0, **kwargs):
+        """Initialize the Gemini chat model."""
+        super().__init__(**kwargs)
+        self.api_key = api_key
+        self.temperature = temperature
     
     def _generate(self, messages, stop=None, run_manager=None, **kwargs):
         """Generate a response from the Gemini API."""
@@ -47,10 +53,14 @@ class GeminiChatModel(BaseChatModel):
             }
         }
         
-        # Make the API request
+        # Make the API request with authentication if key is provided
         headers = {
             "Content-Type": "application/json"
         }
+        
+        # Add API key to headers if provided (custom endpoint may handle auth differently)
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
         
         response = requests.post(
             self.api_url,
@@ -60,9 +70,22 @@ class GeminiChatModel(BaseChatModel):
         )
         response.raise_for_status()
         
-        # Parse the response
+        # Parse the response with proper error handling
         result = response.json()
-        text = result.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+        
+        # Safely extract text from response
+        candidates = result.get("candidates", [])
+        if not candidates:
+            raise ValueError("No candidates returned from Gemini API")
+        
+        content = candidates[0].get("content", {})
+        parts = content.get("parts", [])
+        if not parts:
+            raise ValueError("No parts in response content")
+        
+        text = parts[0].get("text", "")
+        if not text:
+            raise ValueError("Empty text in response")
         
         # Return in LangChain format
         message = AIMessage(content=text)

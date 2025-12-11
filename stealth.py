@@ -17,7 +17,7 @@ import numpy as np
 try:
     from scipy import interpolate  # type: ignore
     _HAVE_SCIPY = True
-except Exception:
+except ImportError:
     interpolate = None  # type: ignore
     _HAVE_SCIPY = False
 
@@ -194,6 +194,12 @@ class HumanTimingModel:
 # MOUSE MOVEMENT BIOMETRICS
 # ============================================================================
 
+# Mouse movement constants
+OVERSHOOT_MAX = 0.1  # Maximum overshoot ratio for primary movement
+PRIMARY_MOVEMENT_RATIO = 0.8  # Percentage of trajectory for primary movement phase
+ACCELERATION_EXPONENT = 0.7  # Non-linear progression exponent for acceleration
+
+
 class MouseMovementModel:
     """
     Generates human-like mouse trajectories with micro-corrections.
@@ -229,10 +235,10 @@ class MouseMovementModel:
         jitter_mult = self.profile.get_mouse_jitter_multiplier()
         
         # Primary movement phase (80% of distance)
-        overshoot = 1.0 + random.uniform(0, 0.1) * jitter_mult
+        overshoot = 1.0 + random.uniform(0, OVERSHOOT_MAX) * jitter_mult
         
-        for i in range(int(num_points * 0.8)):
-            t = (i / num_points) ** 0.7  # Non-linear progression (acceleration)
+        for i in range(int(num_points * PRIMARY_MOVEMENT_RATIO)):
+            t = (i / num_points) ** ACCELERATION_EXPONENT  # Non-linear progression (acceleration)
             
             # Interpolate position
             x = x0 + (x1 - x0) * t * overshoot

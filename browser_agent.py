@@ -10,6 +10,10 @@ from datetime import datetime, timedelta
 from browser_use import Agent, Browser, Controller, ChatGoogle
 from stealth import create_stealth_config
 
+# Configuration constants
+PRIMARY_SOURCE_URL = "olbg.com"
+PRIMARY_SOURCE_NAME = "OLBG"
+
 
 async def search_accumulator_bets():
     """
@@ -52,19 +56,19 @@ async def search_accumulator_bets():
     
     # Define the search task for accumulator bets using OLBG
     task = f"""
-    IMPORTANT: Use OLBG (Online Betting Guide) at olbg.com as your PRIMARY aggregator source for betting tips and match information.
+    IMPORTANT: Use {PRIMARY_SOURCE_NAME} (Online Betting Guide) at {PRIMARY_SOURCE_URL} as your PRIMARY aggregator source for betting tips and match information.
     
-    Step 1: Navigate to OLBG.com
-    - Go to olbg.com and look for football/soccer betting tips
+    Step 1: Navigate to {PRIMARY_SOURCE_NAME}
+    - Go to {PRIMARY_SOURCE_URL} and look for football/soccer betting tips
     - Focus on matches happening within the next 3 hours (from {current_time.strftime('%H:%M')} to {target_time.strftime('%H:%M')})
     
-    Step 2: Gather Initial Data from OLBG
+    Step 2: Gather Initial Data from {PRIMARY_SOURCE_NAME}
     - Look for accumulator tips or "acca" recommendations
-    - Identify matches with highest confidence ratings from OLBG tipsters
+    - Identify matches with highest confidence ratings from {PRIMARY_SOURCE_NAME} tipsters
     - Note the recommended bets and odds
     
     Step 3: Research Further (if needed)
-    - Cross-reference OLBG tips with additional sources if necessary
+    - Cross-reference {PRIMARY_SOURCE_NAME} tips with additional sources if necessary
     - Verify match times and current odds
     - Confirm team form and recent performance
     
@@ -73,10 +77,10 @@ async def search_accumulator_bets():
     1. Match name (Team A vs Team B)
     2. Start time (must be within 3 hours)
     3. Recommended bet type (e.g., Home Win, Over 2.5, BTTS)
-    4. Odds from OLBG
-    5. Risk assessment (Low/Medium/High based on OLBG tipster confidence)
-    6. OLBG tipster rating/confidence percentage
-    7. Source URL from OLBG
+    4. Odds from {PRIMARY_SOURCE_NAME}
+    5. Risk assessment (Low/Medium/High based on {PRIMARY_SOURCE_NAME} tipster confidence)
+    6. {PRIMARY_SOURCE_NAME} tipster rating/confidence percentage
+    7. Source URL from {PRIMARY_SOURCE_NAME}
     
     Step 5: Prioritize and Save
     - Organize results by risk level (lowest risk first)
@@ -130,7 +134,8 @@ async def search_accumulator_bets():
         results = {
             "timestamp": current_time.isoformat(),
             "search_type": "accumulator_bets",
-            "primary_source": "OLBG",
+            "primary_source": PRIMARY_SOURCE_NAME,
+            "primary_source_url": PRIMARY_SOURCE_URL,
             "time_window": {
                 "from": current_time.isoformat(),
                 "to": target_time.isoformat()
@@ -160,7 +165,8 @@ async def search_accumulator_bets():
         error_results = {
             "timestamp": current_time.isoformat(),
             "search_type": "accumulator_bets",
-            "primary_source": "OLBG",
+            "primary_source": PRIMARY_SOURCE_NAME,
+            "primary_source_url": PRIMARY_SOURCE_URL,
             "status": "error",
             "error": str(e),
             "stealth_enabled": True

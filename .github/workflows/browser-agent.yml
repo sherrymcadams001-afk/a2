@@ -46,11 +46,11 @@ jobs:
       run: |
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
-        # Only add JSON result files that were just created (within last 15 minutes to be safe)
-        RESULT_FILES=$(find . -maxdepth 1 -name "results_*.json" -type f -mmin -15)
+        # Only add JSON result files that were just created (within last 15 minutes)
+        RESULT_FILES=$(find . -maxdepth 1 \( -name "accumulator_bets_*.json" -o -name "results_*.json" \) -type f -mmin -15)
         if [ -n "$RESULT_FILES" ]; then
           echo "$RESULT_FILES" | xargs git add
-          git commit -m "Add browser agent results - $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          git commit -m "Add accumulator bet findings - $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
           git push
         else
           echo "No result files found to commit"

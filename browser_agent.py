@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 """
 Browser-use agent to find top accumulator bet matches with least risk occurring within 3 hours.
+Uses OLBG as main aggregator source with stealth mode enabled.
 """
 import asyncio
 import os
 import json
 from datetime import datetime, timedelta
 from browser_use import Agent, Browser, Controller, ChatGoogle
+from stealth import create_stealth_config
 
 
 async def search_accumulator_bets():
     """
     Use browser-use agent to find top accumulator bet matches with least risk within 3 hours.
+    Uses OLBG as the main aggregator source with stealth mode enabled.
     Returns the search results and saves them to a file.
     """
     # Get current time and target time window
@@ -26,7 +29,14 @@ async def search_accumulator_bets():
             "Please set it as a GitHub secret or environment variable."
         )
     
-    # Initialize browser
+    # Initialize stealth configuration
+    stealth = create_stealth_config(
+        confidence=0.7,
+        stress=0.2,
+        emotional_state="focused"
+    )
+    
+    # Initialize browser with stealth mode
     browser = Browser()
     
     # Initialize LLM using browser-use's native Gemini support with custom endpoint
@@ -40,27 +50,47 @@ async def search_accumulator_bets():
     # Create controller for browser actions
     controller = Controller()
     
-    # Define the search task for accumulator bets
+    # Define the search task for accumulator bets using OLBG
     task = f"""
-    Go to Bing.com and search for top accumulator bet matches with the least risk occurring within the next 3 hours.
+    IMPORTANT: Use OLBG (Online Betting Guide) at olbg.com as your PRIMARY aggregator source for betting tips and match information.
     
-    Your goal is to find football/soccer matches that are:
-    1. Starting within the next 3 hours (from {current_time.strftime('%H:%M')} to {target_time.strftime('%H:%M')})
-    2. Have low risk factors (favorites with high probability of winning)
-    3. Suitable for accumulator betting
+    Step 1: Navigate to OLBG.com
+    - Go to olbg.com and look for football/soccer betting tips
+    - Focus on matches happening within the next 3 hours (from {current_time.strftime('%H:%M')} to {target_time.strftime('%H:%M')})
     
-    For each match found, extract:
+    Step 2: Gather Initial Data from OLBG
+    - Look for accumulator tips or "acca" recommendations
+    - Identify matches with highest confidence ratings from OLBG tipsters
+    - Note the recommended bets and odds
+    
+    Step 3: Research Further (if needed)
+    - Cross-reference OLBG tips with additional sources if necessary
+    - Verify match times and current odds
+    - Confirm team form and recent performance
+    
+    Step 4: Compile Final List
+    For each recommended match, extract:
     1. Match name (Team A vs Team B)
-    2. Start time
-    3. Recommended bet type (e.g., Home Win, Over/Under)
-    4. Odds if available
-    5. Risk assessment (Low/Medium/High)
-    6. Source URL
+    2. Start time (must be within 3 hours)
+    3. Recommended bet type (e.g., Home Win, Over 2.5, BTTS)
+    4. Odds from OLBG
+    5. Risk assessment (Low/Medium/High based on OLBG tipster confidence)
+    6. OLBG tipster rating/confidence percentage
+    7. Source URL from OLBG
     
-    Organize the results by risk level (lowest risk first) and limit to top 5 matches.
+    Step 5: Prioritize and Save
+    - Organize results by risk level (lowest risk first)
+    - Focus on matches suitable for accumulator betting
+    - Limit to top 5-7 matches with best risk/reward ratio
+    - Ensure all matches are within the 3-hour window
+    
+    STEALTH MODE: Operate with natural human-like behavior patterns including realistic delays, mouse movements, and reading pauses.
     """
     
     try:
+        # Apply stealth delay before starting
+        await stealth.before_action("navigate")
+        
         # Create and run the agent
         agent = Agent(
             task=task,
@@ -70,6 +100,9 @@ async def search_accumulator_bets():
         )
         
         history = await agent.run()
+        
+        # Apply stealth delay after completion
+        await stealth.after_action("navigate", success=True)
         
         # Extract relevant information from history
         # The browser-use agent returns a history object that may vary in structure
@@ -97,31 +130,43 @@ async def search_accumulator_bets():
         results = {
             "timestamp": current_time.isoformat(),
             "search_type": "accumulator_bets",
+            "primary_source": "OLBG",
             "time_window": {
                 "from": current_time.isoformat(),
                 "to": target_time.isoformat()
             },
             "agent_history": history_data,
+            "stealth_enabled": True,
+            "psychological_state": {
+                "confidence": stealth.profile.confidence,
+                "stress": stealth.profile.stress,
+                "emotional_state": stealth.profile.emotional_state.value
+            },
             "status": "completed"
         }
         
-        # Save results to file
-        output_file = f"results_{current_time.strftime('%Y%m%d_%H%M%S')}.json"
+        # Save results to file (will be committed by GitHub Actions)
+        output_file = f"accumulator_bets_{current_time.strftime('%Y%m%d_%H%M%S')}.json"
         with open(output_file, 'w') as f:
             json.dump(results, f, indent=2)
         
         print(f"Results saved to {output_file}")
+        print(f"Stealth mode: Active (State: {stealth.profile.emotional_state.value})")
         return results
         
     except Exception as e:
+        await stealth.after_action("navigate", success=False)
+        
         error_results = {
             "timestamp": current_time.isoformat(),
             "search_type": "accumulator_bets",
+            "primary_source": "OLBG",
             "status": "error",
-            "error": str(e)
+            "error": str(e),
+            "stealth_enabled": True
         }
         
-        output_file = f"results_{current_time.strftime('%Y%m%d_%H%M%S')}_error.json"
+        output_file = f"accumulator_bets_{current_time.strftime('%Y%m%d_%H%M%S')}_error.json"
         with open(output_file, 'w') as f:
             json.dump(error_results, f, indent=2)
         

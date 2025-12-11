@@ -48,11 +48,33 @@ You can also trigger the workflow manually:
 3. Click "Run workflow"
 4. Select the branch and click "Run workflow"
 
+#### Observability and Logging
+
+The agent provides detailed logging with insights into its stepwise thinking:
+
+**Workflow Summary:**
+- After each run, check the workflow summary in GitHub Actions
+- Summary includes execution status, result file info, and psychological state
+- Recent log entries are displayed for quick troubleshooting
+
+**Detailed Logs:**
+- Agent creates timestamped log files (`agent_log_YYYYMMDD_HHMMSS.log`)
+- Logs include:
+  - Initialization steps (API validation, stealth setup, browser/LLM connection)
+  - Task execution phases (navigation, data gathering, processing)
+  - Agent's stepwise actions with previews
+  - Stealth mode status and psychological state changes
+  - Error details with full tracebacks if failures occur
+  - Execution summary with final status
+- Log files are committed to the repository for historical tracking
+- No performance overhead - uses efficient Python logging module
+
 ### Results
 
 Search results are saved as JSON files with the naming pattern:
 - `accumulator_bets_YYYYMMDD_HHMMSS.json` - Successful search results
 - `accumulator_bets_YYYYMMDD_HHMMSS_error.json` - Error logs if the search fails
+- `agent_log_YYYYMMDD_HHMMSS.log` - Detailed execution logs with agent thinking
 
 Each result file contains:
 - Timestamp of the search
@@ -63,6 +85,14 @@ Each result file contains:
 - Stealth mode status and psychological state
 - Match details including teams, odds, risk assessments, and OLBG tipster ratings
 - Status and any error information
+
+Each log file contains:
+- Detailed initialization steps
+- Agent's task execution phases
+- Stepwise action previews
+- Psychological state tracking
+- Performance metrics
+- Error traces (if any)
 
 ### Components
 

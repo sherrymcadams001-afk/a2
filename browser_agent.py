@@ -6,6 +6,8 @@ Uses OLBG as main aggregator source with stealth mode enabled.
 import asyncio
 import os
 import json
+import logging
+import sys
 from datetime import datetime, timedelta
 from browser_use import Agent, Browser, Controller, ChatGoogle
 from stealth import create_stealth_config
@@ -14,6 +16,17 @@ from stealth import create_stealth_config
 PRIMARY_SOURCE_URL = "olbg.com"
 PRIMARY_SOURCE_NAME = "OLBG"
 
+# Configure detailed logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler(f'agent_log_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log')
+    ]
+)
+logger = logging.getLogger(__name__)
+
 
 async def search_accumulator_bets():
     """
@@ -21,38 +34,56 @@ async def search_accumulator_bets():
     Uses OLBG as the main aggregator source with stealth mode enabled.
     Returns the search results and saves them to a file.
     """
+    logger.info("="*80)
+    logger.info("STARTING ACCUMULATOR BET SEARCH AGENT")
+    logger.info("="*80)
+    
     # Get current time and target time window
     current_time = datetime.now()
     target_time = current_time + timedelta(hours=3)
+    logger.info(f"Time window: {current_time.strftime('%Y-%m-%d %H:%M:%S')} to {target_time.strftime('%Y-%m-%d %H:%M:%S')}")
     
     # Validate Gemini API key
+    logger.info("Validating API key...")
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
+        logger.error("GEMINI_API_KEY environment variable is not set")
         raise ValueError(
             "GEMINI_API_KEY environment variable is not set. "
             "Please set it as a GitHub secret or environment variable."
         )
+    logger.info("✓ API key validated")
     
     # Initialize stealth configuration
+    logger.info("Initializing stealth mode...")
     stealth = create_stealth_config(
         confidence=0.7,
         stress=0.2,
         emotional_state="focused"
     )
+    logger.info(f"✓ Stealth profile: confidence={stealth.profile.confidence}, "
+                f"stress={stealth.profile.stress}, "
+                f"state={stealth.profile.emotional_state.value}")
     
     # Initialize browser with stealth mode
+    logger.info("Initializing browser...")
     browser = Browser()
+    logger.info("✓ Browser initialized")
     
     # Initialize LLM using browser-use's native Gemini support with custom endpoint
+    logger.info("Connecting to Gemini API...")
     llm = ChatGoogle(
         model='gemini-2.5-flash-preview-05-20',
         api_key=api_key,
         base_url='https://key.ematthew477.workers.dev/v1beta',
         temperature=0.0
     )
+    logger.info("✓ Connected to Gemini 2.5 Flash Preview")
     
     # Create controller for browser actions
+    logger.info("Setting up agent controller...")
     controller = Controller()
+    logger.info("✓ Controller ready")
     
     # Define the search task for accumulator bets using OLBG
     task = f"""
@@ -93,9 +124,23 @@ async def search_accumulator_bets():
     
     try:
         # Apply stealth delay before starting
+        logger.info("Applying pre-action stealth delay...")
         await stealth.before_action("navigate")
+        logger.info("✓ Stealth delay applied")
         
         # Create and run the agent
+        logger.info("-"*80)
+        logger.info("AGENT TASK EXECUTION STARTING")
+        logger.info("-"*80)
+        logger.info(f"Primary source: {PRIMARY_SOURCE_NAME} ({PRIMARY_SOURCE_URL})")
+        logger.info("Task steps:")
+        logger.info("  1. Navigate to OLBG and find football/soccer tips")
+        logger.info("  2. Gather accumulator recommendations with tipster ratings")
+        logger.info("  3. Cross-reference data if needed")
+        logger.info("  4. Extract match details (teams, odds, risk, start time)")
+        logger.info("  5. Compile and prioritize top 5-7 low-risk matches")
+        logger.info("-"*80)
+        
         agent = Agent(
             task=task,
             llm=llm,
@@ -103,34 +148,53 @@ async def search_accumulator_bets():
             controller=controller,
         )
         
+        logger.info("Agent created. Beginning autonomous execution...")
         history = await agent.run()
+        logger.info("✓ Agent execution completed")
         
         # Apply stealth delay after completion
+        logger.info("Applying post-action stealth delay...")
         await stealth.after_action("navigate", success=True)
+        logger.info("✓ Post-action delay applied")
         
         # Extract relevant information from history
+        logger.info("-"*80)
+        logger.info("PROCESSING AGENT RESULTS")
+        logger.info("-"*80)
+        
         # The browser-use agent returns a history object that may vary in structure
         # We'll safely extract what we can and preserve the raw data
         history_data = {
             "raw_history": str(history),
             "type": type(history).__name__
         }
+        logger.info(f"History type: {type(history).__name__}")
         
         # Try to extract final result if available
         if hasattr(history, 'final_result'):
             try:
-                history_data["final_result"] = str(history.final_result())
-            except Exception:
-                pass
+                final_result = str(history.final_result())
+                history_data["final_result"] = final_result
+                logger.info(f"Final result extracted ({len(final_result)} characters)")
+            except Exception as e:
+                logger.warning(f"Could not extract final_result: {e}")
         
         # Try to extract individual actions if iterable
         if hasattr(history, '__iter__') and not isinstance(history, str):
             try:
-                history_data["actions"] = [str(item) for item in history]
-            except Exception:
-                pass
+                actions = [str(item) for item in history]
+                history_data["actions"] = actions
+                logger.info(f"Extracted {len(actions)} actions from history")
+                
+                # Log each action for detailed insight
+                for idx, action in enumerate(actions, 1):
+                    action_preview = action[:200] + "..." if len(action) > 200 else action
+                    logger.info(f"  Action {idx}: {action_preview}")
+            except Exception as e:
+                logger.warning(f"Could not extract actions: {e}")
         
         # Prepare results
+        logger.info("Compiling final results...")
         results = {
             "timestamp": current_time.isoformat(),
             "search_type": "accumulator_bets",
@@ -155,11 +219,27 @@ async def search_accumulator_bets():
         with open(output_file, 'w') as f:
             json.dump(results, f, indent=2)
         
-        print(f"Results saved to {output_file}")
-        print(f"Stealth mode: Active (State: {stealth.profile.emotional_state.value})")
+        logger.info("="*80)
+        logger.info("EXECUTION SUMMARY")
+        logger.info("="*80)
+        logger.info(f"✓ Results saved to: {output_file}")
+        logger.info(f"✓ Status: {results['status']}")
+        logger.info(f"✓ Stealth mode: Active")
+        logger.info(f"✓ Psychological state: {stealth.profile.emotional_state.value}")
+        logger.info(f"✓ Confidence level: {stealth.profile.confidence}")
+        logger.info(f"✓ Stress level: {stealth.profile.stress}")
+        logger.info("="*80)
+        
         return results
         
     except Exception as e:
+        logger.error("="*80)
+        logger.error("EXECUTION FAILED")
+        logger.error("="*80)
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Error message: {str(e)}")
+        logger.exception("Full traceback:")
+        
         await stealth.after_action("navigate", success=False)
         
         error_results = {
@@ -169,6 +249,7 @@ async def search_accumulator_bets():
             "primary_source_url": PRIMARY_SOURCE_URL,
             "status": "error",
             "error": str(e),
+            "error_type": type(e).__name__,
             "stealth_enabled": True
         }
         
@@ -176,13 +257,16 @@ async def search_accumulator_bets():
         with open(output_file, 'w') as f:
             json.dump(error_results, f, indent=2)
         
-        print(f"Error occurred: {e}")
-        print(f"Error details saved to {output_file}")
+        logger.error(f"Error details saved to {output_file}")
+        logger.error("="*80)
         raise
     
     finally:
         # Clean up browser
+        logger.info("Cleaning up browser resources...")
         await browser.close()
+        logger.info("✓ Browser closed")
+        logger.info("Agent execution finished.")
 
 if __name__ == "__main__":
     asyncio.run(search_accumulator_bets())

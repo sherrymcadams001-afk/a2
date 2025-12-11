@@ -45,3 +45,6 @@ test-results/
 # OS
 .DS_Store
 Thumbs.db
+
+# Development logs (workflow will commit production logs)
+agent_output.log

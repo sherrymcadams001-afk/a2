@@ -1,0 +1,26 @@
+{
+  "timestamp": "2026-01-07T00:02:31.624947",
+  "search_type": "accumulator_bets",
+  "primary_source": "OLBG",
+  "primary_source_url": "olbg.com",
+  "time_window": {
+    "from": "2026-01-07T00:02:31.624947",
+    "to": "2026-01-07T03:02:31.624947"
+  },
+  "agent_history": {
+    "raw_history": "AgentHistoryList(all_results=[ActionResult(is_done=False, success=None, judgement=None, error='Navigation failed: Event handler browser_use.browser.watchdog_base.BrowserSession.on_NavigateToUrlEvent#2416(?\u25b6 NavigateToUrlEvent#2c9e \ud83c\udfc3) timed out after 15.0s and interrupted any processing of 1 child events', attachments=None, images=None, long_term_memory=None, extracted_content=None, include_extracted_content_only_once=False, metadata=None, include_in_memory=False)], all_model_outputs=[{'navigate': {'url': 'https://olbg.com', 'new_tab': False}, 'interacted_element': None}])",
+    "type": "AgentHistoryList",
+    "final_result": "None",
+    "actions": [
+      "('history', [AgentHistory(model_output=AgentOutput(thinking=None, evaluation_previous_goal='Start', memory=None, next_goal='Initial navigation', action=[ActionModel(root=NavigateActionModel(navigate=NavigateAction(url='https://olbg.com', new_tab=False)))]), result=[ActionResult(is_done=False, success=None, judgement=None, error='Navigation failed: Event handler browser_use.browser.watchdog_base.BrowserSession.on_NavigateToUrlEvent#2416(?\u25b6 NavigateToUrlEvent#2c9e \ud83c\udfc3) timed out after 15.0s and interrupted any processing of 1 child events', attachments=None, images=None, long_term_memory=None, extracted_content=None, include_extracted_content_only_once=False, metadata=None, include_in_memory=False)], state=BrowserStateHistory(url='https://olbg.com', title='Initial Actions', tabs=[], interacted_element=[None], screenshot_path=None), metadata=StepMetadata(step_start_time=1767744175.0552428, step_end_time=1767744175.055243, step_number=0, step_interval=None), state_message=None)])",
+      "('usage', UsageSummary(total_prompt_tokens=0, total_prompt_cost=0.0, total_prompt_cached_tokens=0, total_prompt_cached_cost=0.0, total_completion_tokens=0, total_completion_cost=0.0, total_tokens=0, total_cost=0.0, entry_count=0, by_model={}))"
+    ]
+  },
+  "stealth_enabled": true,
+  "psychological_state": {
+    "confidence": 0.75,
+    "stress": 0.17,
+    "emotional_state": "focused"
+  },
+  "status": "completed"
+}

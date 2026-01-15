@@ -1,7 +1,17 @@
 #!/usr/bin/env python3
 """
-Browser-use agent to find top accumulator bet matches with least risk occurring within 3 hours.
-Uses OLBG as main aggregator source with stealth mode enabled.
+Browser-use agent for multi-purpose web scraping and data extraction.
+Uses stealth browser automation with human-like behavior.
+
+Supports two modes:
+- WORKFLOW MODE (default): Uses workflow JSON for structured multi-step execution
+- LEGACY MODE: Uses task_prompt.txt for single-task execution (set USE_WORKFLOW=false)
+
+Available workflows:
+- workflow.json: OLBG accumulator bets scraper
+- workflows/sportybet_scraper.json: Sportybet live matches scraper
+
+Set WORKFLOW_FILE env var to specify which workflow to use.
 """
 import asyncio
 import os
@@ -9,13 +19,22 @@ import json
 import logging
 import sys
 from datetime import datetime, timedelta
+
+# =============================================================================
+# CRITICAL: Disable browser-use telemetry and cloud sync BEFORE imports
+# These interfere with LLM request timing and cause sync issues
+# =============================================================================
+os.environ['ANONYMIZED_TELEMETRY'] = 'false'
+os.environ['BROWSER_USE_CLOUD_SYNC'] = 'false'
+
 from browser_use import Agent, Browser, Controller, ChatGoogle
-from stealth import create_stealth_config
 
 # Configuration constants
 PRIMARY_SOURCE_URL = "olbg.com"
 PRIMARY_SOURCE_NAME = "OLBG"
-MAX_ACTIONS_TO_LOG = 10  # Limit number of actions logged to avoid excessive output
+MAX_ACTIONS_TO_LOG = 10
+USE_WORKFLOW = os.environ.get('USE_WORKFLOW', 'true').lower() == 'true'
+WORKFLOW_FILE = os.environ.get('WORKFLOW_FILE', 'workflow.json')
 
 # Configure detailed logging
 def setup_logging():
@@ -50,86 +69,220 @@ async def search_accumulator_bets():
     target_time = current_time + timedelta(hours=3)
     logger.info(f"Time window: {current_time.strftime('%Y-%m-%d %H:%M:%S')} to {target_time.strftime('%Y-%m-%d %H:%M:%S')}")
     
-    # Set custom Gemini endpoint via environment variable
-    os.environ['GOOGLE_API_BASE'] = 'https://key.ematthew477.workers.dev/v1beta'
-    logger.info("Custom Gemini endpoint configured: https://key.ematthew477.workers.dev/v1beta")
+    # Stealth is now built into browser-use internals (mouse, keyboard, scroll actions)
+    logger.info("✓ Stealth mode BUILT-IN: human-like delays for all browser actions")
     
-    # Initialize stealth configuration
-    logger.info("Initializing stealth mode...")
-    stealth = create_stealth_config(
-        confidence=0.7,
-        stress=0.2,
-        emotional_state="focused"
-    )
-    logger.info(f"✓ Stealth profile: confidence={stealth.profile.confidence}, "
-                f"stress={stealth.profile.stress}, "
-                f"state={stealth.profile.emotional_state.value}")
-    
-    # Initialize browser with stealth mode
+    # Initialize browser with keep_alive=True for multi-step workflows
     logger.info("Initializing browser...")
-    browser = Browser()
+    browser = Browser(keep_alive=True)
+    await browser.start()  # Explicitly start browser session
     logger.info("✓ Browser initialized")
     
-    # Initialize LLM using browser-use's native Gemini support
-    logger.info("Connecting to Gemini endpoint...")
-    llm = ChatGoogle(
-        model='gemini-2.5-flash',
-        api_key='custom-endpoint-key',  # Placeholder - custom endpoint handles auth
-        temperature=0.0
-    )
-    logger.info("✓ Connected to Gemini via custom endpoint")
+    # =========================================================================
+    # LLM INITIALIZATION - LotL Controller only on VM, otherwise Gemini API
+    # =========================================================================
+    # LotL Controller routes prompts through a logged-in AI Studio session,
+    # bypassing API quotas and rate limits. Only use when running on VM.
+    
+    from lotl_llm import is_lotl_available, get_lotl_llm
+    
+    llm = None
+    fallback_llm = None
+    
+    # Detect if running on VM (Windows Administrator user)
+    is_vm = os.getenv('USERNAME', '').lower() == 'administrator' or \
+            os.path.exists(r'C:\Users\Administrator')
+    
+    # Skip test request, just check if controller is running (faster startup)
+    if is_vm and is_lotl_available(test_request=False):
+        logger.info("✓ VM detected + LotL Controller available - using local AI Studio session")
+        llm = get_lotl_llm(timeout=600.0)  # 10 minutes - Gemini needs time for complex browser states
+        fallback_llm = llm  # LotL is already robust, use same for fallback
+    else:
+        if is_vm:
+            logger.info("VM detected but LotL Controller not available - using Gemini API mirror")
+        else:
+            logger.info("Not on VM - using Gemini API mirror directly")
+        # Set custom Gemini endpoint via environment variable
+        os.environ['GOOGLE_API_BASE'] = 'https://key.ematthew477.workers.dev'
+        logger.info("Custom Gemini endpoint configured: https://key.ematthew477.workers.dev")
+        
+        # NOTE: The underlying `google-genai` client enforces that *some* auth input is provided
+        # (api_key or Vertex config) even if you're pointing it at a custom mirror base_url.
+        # The mirror endpoint accepts requests without a real key, so we pass a non-empty
+        # placeholder to satisfy client initialization.
+        llm = ChatGoogle(
+            model='gemini-2.5-flash',
+            temperature=0.0,
+            api_key='DUMMY',
+            http_options={'base_url': 'https://key.ematthew477.workers.dev'},
+        )
+        logger.info("✓ Connected to Gemini via custom endpoint")
+        
+        # Initialize Fallback LLM (Flash Lite)
+        fallback_llm = ChatGoogle(
+            model='gemini-2.0-flash-lite-preview-02-05',
+            temperature=0.0,
+            api_key='DUMMY',
+            http_options={'base_url': 'https://key.ematthew477.workers.dev'},
+        )
+        logger.info("✓ Fallback LLM (Flash Lite) initialized")
     
     # Create controller for browser actions
     logger.info("Setting up agent controller...")
     controller = Controller()
     logger.info("✓ Controller ready")
     
-    # Define the search task for accumulator bets using OLBG
-    task = f"""
-    IMPORTANT: Use {PRIMARY_SOURCE_NAME} (Online Betting Guide) at {PRIMARY_SOURCE_URL} as your PRIMARY aggregator source for betting tips and match information.
+    # Choose execution mode
+    if USE_WORKFLOW:
+        return await run_workflow_mode(logger, llm, browser, controller, current_time, target_time, fallback_llm)
+    else:
+        return await run_legacy_mode(logger, llm, browser, controller, current_time, target_time)
+
+
+async def run_workflow_mode(logger, llm, browser, controller, current_time, target_time, fallback_llm=None):
+    """Execute using structured workflow with validation and transforms"""
+    from workflow_runner import WorkflowRunner
     
-    Step 1: Navigate to {PRIMARY_SOURCE_NAME}
-    - Go to {PRIMARY_SOURCE_URL} and look for football/soccer betting tips
-    - Focus on matches happening within the next 3 hours (from {current_time.strftime('%H:%M')} to {target_time.strftime('%H:%M')})
+    logger.info("-"*80)
+    logger.info("WORKFLOW MODE: Structured multi-step execution")
+    logger.info("-"*80)
     
-    Step 2: Gather Initial Data from {PRIMARY_SOURCE_NAME}
-    - Look for accumulator tips or "acca" recommendations
-    - Identify matches with highest confidence ratings from {PRIMARY_SOURCE_NAME} tipsters
-    - Note the recommended bets and odds
+    # Resolve workflow file path
+    workflow_file = WORKFLOW_FILE
+    if not os.path.isabs(workflow_file):
+        workflow_file = os.path.join(os.path.dirname(__file__), workflow_file)
     
-    Step 3: Research Further (if needed)
-    - Cross-reference {PRIMARY_SOURCE_NAME} tips with additional sources if necessary
-    - Verify match times and current odds
-    - Confirm team form and recent performance
+    if not os.path.exists(workflow_file):
+        logger.error(f"Workflow file not found: {workflow_file}")
+        return None
     
-    Step 4: Compile Final List
-    For each recommended match, extract:
-    1. Match name (Team A vs Team B)
-    2. Start time (must be within 3 hours)
-    3. Recommended bet type (e.g., Home Win, Over 2.5, BTTS)
-    4. Odds from {PRIMARY_SOURCE_NAME}
-    5. Risk assessment (Low/Medium/High based on {PRIMARY_SOURCE_NAME} tipster confidence)
-    6. {PRIMARY_SOURCE_NAME} tipster rating/confidence percentage
-    7. Source URL from {PRIMARY_SOURCE_NAME}
+    # Initialize workflow runner with source detection
+    # Pass llm, controller, browser so runner can create fresh agents per step
+    source = "sportybet" if "sportybet" in workflow_file.lower() else "olbg"
+    runner = WorkflowRunner(
+        workflow_file, 
+        browser=browser, 
+        llm=llm, 
+        controller=controller, 
+        source=source,
+        fallback_llm=fallback_llm
+    )
     
-    Step 5: Prioritize and Save
-    - Organize results by risk level (lowest risk first)
-    - Focus on matches suitable for accumulator betting
-    - Limit to top 5-7 matches with best risk/reward ratio
-    - Ensure all matches are within the 3-hour window
+    # Set dynamic variables
+    runner.set_variable('current_time', current_time.strftime('%H:%M'))
+    runner.set_variable('target_time', target_time.strftime('%H:%M'))
     
-    STEALTH MODE: Operate with natural human-like behavior patterns including realistic delays, mouse movements, and reading pauses.
-    """
+    logger.info(f"✓ Workflow loaded from {workflow_file}")
+    logger.info(f"  Steps: {len(runner.workflow.get('steps', []))}")
     
     try:
-        # Apply stealth delay before starting
-        logger.info("Applying pre-action stealth delay...")
-        await stealth.before_action("navigate")
-        logger.info("✓ Stealth delay applied")
+        # Execute workflow
+        results = await runner.run()
         
+        # Save results
+        workflow_name = runner.workflow.get('name', 'workflow')
+        primary_source_name = 'Sportybet' if source == 'sportybet' else PRIMARY_SOURCE_NAME
+        primary_source_url = 'sportybet.com' if source == 'sportybet' else PRIMARY_SOURCE_URL
+
+        output = {
+            "timestamp": current_time.isoformat(),
+            "search_type": workflow_name,
+            "mode": "workflow",
+            "primary_source": primary_source_name,
+            "primary_source_url": primary_source_url,
+            "time_window": {
+                "from": current_time.isoformat(),
+                "to": target_time.isoformat()
+            },
+            "results": results,
+            "stealth_enabled": True,
+            "stealth_mode": "built-in",
+            "status": "completed"
+        }
+        
+        output_file = f"{workflow_name}_{current_time.strftime('%Y%m%d_%H%M%S')}.json"
+        with open(output_file, 'w') as f:
+            json.dump(output, f, indent=2)
+        
+        logger.info("="*80)
+        logger.info("PHASE 1 WORKFLOW COMPLETE")
+        logger.info("="*80)
+        logger.info(f"✓ Results saved to: {output_file}")
+        logger.info(f"✓ Matches found: {results.get('count', 0)}")
+        
+        # ============ PHASE 2: Duck.ai Research ============
+        phase2_enabled = os.environ.get('PHASE2_ENABLED', 'true').lower() == 'true'
+        phase2_limit = int(os.environ.get('PHASE2_LIMIT', '5'))
+        
+        if phase2_enabled and source == 'sportybet' and results.get('count', 0) > 0:
+            logger.info("")
+            logger.info("="*80)
+            logger.info("STARTING PHASE 2: Duck.ai Match Research")
+            logger.info("="*80)
+            logger.info(f"Researching up to {phase2_limit} matches via Duck.ai...")
+            
+            try:
+                # Close Phase 1 browser before starting Phase 2 (clean state)
+                await browser.kill()
+                
+                # Import and run Phase 2
+                from phase2_duckai_batch import research_matches
+                db_path = os.path.join(os.path.dirname(__file__), 'scraper_data.db')
+                
+                await research_matches(
+                    db_path=db_path,
+                    headless=False,  # Match Phase 1 visibility
+                    limit=phase2_limit
+                )
+                
+                logger.info("")
+                logger.info("="*80)
+                logger.info("PHASE 2 COMPLETE")
+                logger.info("="*80)
+                logger.info(f"✓ Research results stored in database (match_research table)")
+                
+            except Exception as e:
+                logger.error(f"Phase 2 failed: {e}")
+                import traceback
+                traceback.print_exc()
+        elif not phase2_enabled:
+            logger.info("Phase 2 disabled (set PHASE2_ENABLED=true to enable)")
+        # ====================================================
+        
+        return output
+        
+    except Exception as e:
+        logger.error(f"Workflow failed: {e}")
+        raise
+    finally:
+        # Clean up browser session (may already be killed if Phase 2 ran)
+        try:
+            await browser.kill()
+        except:
+            pass  # Already closed
+
+
+async def run_legacy_mode(logger, llm, browser, controller, current_time, target_time):
+    """Execute using single task prompt (legacy mode)"""
+    # Load task prompt from external file
+    task_file = os.path.join(os.path.dirname(__file__), 'task_prompt.txt')
+    with open(task_file, 'r') as f:
+        task_template = f.read()
+    
+    # Format the task with dynamic values
+    task = task_template.format(
+        PRIMARY_SOURCE_NAME=PRIMARY_SOURCE_NAME,
+        PRIMARY_SOURCE_URL=PRIMARY_SOURCE_URL,
+        current_time=current_time.strftime('%H:%M'),
+        target_time=target_time.strftime('%H:%M')
+    )
+    logger.info(f"✓ Task prompt loaded from {task_file}")
+    
+    try:
         # Create and run the agent
         logger.info("-"*80)
-        logger.info("AGENT TASK EXECUTION STARTING")
+        logger.info("LEGACY MODE: Single task execution")
         logger.info("-"*80)
         logger.info(f"Primary source: {PRIMARY_SOURCE_NAME} ({PRIMARY_SOURCE_URL})")
         logger.info("Task steps:")
@@ -145,16 +298,12 @@ async def search_accumulator_bets():
             llm=llm,
             browser=browser,
             controller=controller,
+            llm_timeout=180,  # Increase timeout for LotL with slower models
         )
         
         logger.info("Agent created. Beginning autonomous execution...")
-        history = await agent.run()
+        history = await agent.run(max_steps=10000)
         logger.info("✓ Agent execution completed")
-        
-        # Apply stealth delay after completion
-        logger.info("Applying post-action stealth delay...")
-        await stealth.after_action("navigate", success=True)
-        logger.info("✓ Post-action delay applied")
         
         # Extract relevant information from history
         logger.info("-"*80)
@@ -213,11 +362,7 @@ async def search_accumulator_bets():
             },
             "agent_history": history_data,
             "stealth_enabled": True,
-            "psychological_state": {
-                "confidence": stealth.profile.confidence,
-                "stress": stealth.profile.stress,
-                "emotional_state": stealth.profile.emotional_state.value
-            },
+            "stealth_mode": "built-in (mouse, keyboard, scroll delays)",
             "status": "completed"
         }
         
@@ -231,10 +376,7 @@ async def search_accumulator_bets():
         logger.info("="*80)
         logger.info(f"✓ Results saved to: {output_file}")
         logger.info(f"✓ Status: {results['status']}")
-        logger.info(f"✓ Stealth mode: Active")
-        logger.info(f"✓ Psychological state: {stealth.profile.emotional_state.value}")
-        logger.info(f"✓ Confidence level: {stealth.profile.confidence}")
-        logger.info(f"✓ Stress level: {stealth.profile.stress}")
+        logger.info(f"✓ Stealth mode: Built-in (human-like delays for all actions)")
         logger.info("="*80)
         
         return results
@@ -246,8 +388,6 @@ async def search_accumulator_bets():
         logger.error(f"Error type: {type(e).__name__}")
         logger.error(f"Error message: {str(e)}")
         logger.exception("Full traceback:")
-        
-        await stealth.after_action("navigate", success=False)
         
         error_results = {
             "timestamp": current_time.isoformat(),
@@ -271,8 +411,15 @@ async def search_accumulator_bets():
     finally:
         # Clean up browser
         logger.info("Cleaning up browser resources...")
-        await browser.close()
-        logger.info("✓ Browser closed")
+        try:
+            if hasattr(browser, 'close'):
+                await browser.close()
+                logger.info("✓ Browser closed")
+            else:
+                logger.warning(f"Browser object {type(browser)} has no close() method")
+        except Exception as e:
+            logger.warning(f"Error closing browser: {e}")
+            
         logger.info("Agent execution finished.")
 
 if __name__ == "__main__":

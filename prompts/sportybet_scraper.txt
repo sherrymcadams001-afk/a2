@@ -1,0 +1,15 @@
+Visit https://www.sportybet.com/ng
+
+1. Click "Live Betting"
+2. Click "Multi View" to see more matches
+
+For each sport tab (Football, Basketball, Tennis):
+- Only extract REAL matches (skip virtual/simulated/e-sports)
+- Scroll down to load matches
+- Extract all live matches you can see
+- Include: team names, scores, match time, league name, and odds if visible
+- Save to results using the extract action
+
+Start with Football (Soccer), then click Basketball tab and extract those matches, then click Tennis tab and extract those matches.
+
+Extract as much match data as possible from each sport before moving to the next.

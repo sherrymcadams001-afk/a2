@@ -37,8 +37,6 @@ jobs:
         python -m playwright install-deps chromium
     
     - name: Run browser-use agent
-      env:
-        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       run: |
         echo "::group::Agent Execution"
         python browser_agent.py 2>&1 | tee agent_output.log
@@ -66,12 +64,7 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Primary Source:** $(jq -r '.primary_source // "N/A"' "$RESULT_FILE")" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Stealth Enabled:** $(jq -r '.stealth_enabled // "N/A"' "$RESULT_FILE")" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            
-            PSYCH_STATE=$(jq -r '.psychological_state.emotional_state // "N/A"' "$RESULT_FILE")
-            CONFIDENCE=$(jq -r '.psychological_state.confidence // "N/A"' "$RESULT_FILE")
-            echo "**Psychological State:** $PSYCH_STATE (Confidence: $CONFIDENCE)" >> $GITHUB_STEP_SUMMARY
+            echo "**Stealth Mode:** $(jq -r '.stealth_mode // "built-in"' "$RESULT_FILE")" >> $GITHUB_STEP_SUMMARY
           fi
         else
           echo "### ❌ Execution Status: FAILED" >> $GITHUB_STEP_SUMMARY

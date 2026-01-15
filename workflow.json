@@ -1,0 +1,168 @@
+{
+  "name": "accumulator_bet_finder",
+  "version": "1.0",
+  "description": "Multi-step workflow to find low-risk accumulator bets",
+  "config": {
+    "primary_source": "OLBG",
+    "primary_url": "olbg.com",
+    "time_window_hours": 3,
+    "max_results": 7,
+    "retry_policy": {
+      "max_retries": 2,
+      "retry_delay_seconds": 5
+    }
+  },
+  "steps": [
+    {
+      "id": "navigate",
+      "name": "Navigate to Source",
+      "type": "browser_action",
+      "prompt": "Navigate to {primary_url}. Accept any cookie consent dialogs. Confirm the page loads correctly.",
+      "validation": {
+        "type": "url_contains",
+        "value": "olbg.com"
+      },
+      "timeout_seconds": 30,
+      "on_failure": "abort"
+    },
+    {
+      "id": "find_tips_section",
+      "name": "Locate Tips Section",
+      "type": "browser_action",
+      "depends_on": ["navigate"],
+      "prompt": "Find and click on the football/soccer betting tips section. Look for 'Football Tips', 'Soccer Tips', or 'Accumulator Tips' links.",
+      "validation": {
+        "type": "element_exists",
+        "selector": "contains:tips"
+      },
+      "timeout_seconds": 20,
+      "on_failure": "retry"
+    },
+    {
+      "id": "apply_filters",
+      "name": "Apply Time Filters",
+      "type": "browser_action",
+      "depends_on": ["find_tips_section"],
+      "prompt": "Apply filters to show only matches starting within the next {time_window_hours} hours (from {current_time} to {target_time}). Look for time/date filter options.",
+      "validation": {
+        "type": "content_check",
+        "contains_any": ["today", "upcoming", "next"]
+      },
+      "timeout_seconds": 20,
+      "on_failure": "continue"
+    },
+    {
+      "id": "extract_matches",
+      "name": "Extract Match Data",
+      "type": "data_extraction",
+      "depends_on": ["apply_filters"],
+      "prompt": "Extract all visible matches with betting tips. For each match, capture: team names, kick-off time, recommended bet, odds, tipster confidence/rating. Return as structured JSON array.",
+      "output_schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["teams", "time", "bet_type"],
+          "properties": {
+            "teams": {"type": "string"},
+            "time": {"type": "string"},
+            "bet_type": {"type": "string"},
+            "odds": {"type": "number"},
+            "confidence": {"type": "number"},
+            "tipster": {"type": "string"},
+            "source_url": {"type": "string"}
+          }
+        }
+      },
+      "validation": {
+        "type": "json_valid",
+        "min_items": 1
+      },
+      "timeout_seconds": 45,
+      "on_failure": "retry"
+    },
+    {
+      "id": "scroll_for_more",
+      "name": "Load Additional Results",
+      "type": "browser_action",
+      "depends_on": ["extract_matches"],
+      "condition": {
+        "type": "result_count_less_than",
+        "step": "extract_matches",
+        "value": 5
+      },
+      "prompt": "Scroll down to load more matches. Click 'Load More' or 'Show More' buttons if available. Look for pagination controls.",
+      "timeout_seconds": 15,
+      "on_failure": "continue"
+    },
+    {
+      "id": "extract_additional",
+      "name": "Extract Additional Matches",
+      "type": "data_extraction",
+      "depends_on": ["scroll_for_more"],
+      "condition": {
+        "type": "step_executed",
+        "step": "scroll_for_more"
+      },
+      "prompt": "Extract any newly visible matches not captured before. Same format as previous extraction.",
+      "output_schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "teams": {"type": "string"},
+            "time": {"type": "string"},
+            "bet_type": {"type": "string"},
+            "odds": {"type": "number"},
+            "confidence": {"type": "number"}
+          }
+        }
+      },
+      "timeout_seconds": 30,
+      "on_failure": "continue"
+    },
+    {
+      "id": "rank_and_filter",
+      "name": "Rank Results",
+      "type": "python_transform",
+      "depends_on": ["extract_matches", "extract_additional"],
+      "transform": "rank_by_confidence",
+      "params": {
+        "max_results": "{max_results}",
+        "min_confidence": 60,
+        "sort_by": ["confidence", "odds"],
+        "sort_order": "desc"
+      }
+    },
+    {
+      "id": "validate_times",
+      "name": "Validate Match Times",
+      "type": "python_transform",
+      "depends_on": ["rank_and_filter"],
+      "transform": "filter_by_time_window",
+      "params": {
+        "start_time": "{current_time}",
+        "end_time": "{target_time}",
+        "time_field": "time"
+      }
+    },
+    {
+      "id": "finalize",
+      "name": "Finalize Results",
+      "type": "python_transform",
+      "depends_on": ["validate_times"],
+      "transform": "add_risk_assessment",
+      "params": {
+        "confidence_thresholds": {
+          "low_risk": 75,
+          "medium_risk": 60,
+          "high_risk": 0
+        }
+      }
+    }
+  ],
+  "output": {
+    "format": "json",
+    "include_metadata": true,
+    "fields": ["teams", "time", "bet_type", "odds", "confidence", "risk_level", "source_url"]
+  }
+}

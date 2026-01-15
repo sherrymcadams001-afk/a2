@@ -1,0 +1,54 @@
+{
+  "name": "sportybet_live_scraper",
+  "version": "2.2",
+  "description": "Phase 1: Scrape all live matches from Sportybet (Phase 2 auto-triggers after completion)",
+  "config": {
+    "retry_policy": {
+      "max_retries": 2,
+      "retry_delay_seconds": 3
+    },
+    "stealth": {
+      "enabled": true,
+      "min_action_delay": 0.8,
+      "max_action_delay": 2.5,
+      "scroll_pause": 1.5,
+      "reading_pause": 2.0
+    }
+  },
+  "steps": [
+    {
+      "id": "extract_all",
+      "name": "Extract Live Matches (Football/Basketball/Tennis)",
+      "type": "data_extraction",
+      "prompt": "@prompts/sportybet_scraper.txt",
+      "timeout_seconds": 180,
+      "on_failure": "retry"
+    },
+    {
+      "id": "save_to_database",
+      "name": "Save to Database",
+      "type": "python_transform",
+      "depends_on": ["extract_all"],
+      "transform": "store_to_db",
+      "params": {
+        "table": "live_matches",
+        "mode": "replace"
+      }
+    },
+    {
+      "id": "generate_summary",
+      "name": "Generate Summary",
+      "type": "python_transform",
+      "depends_on": ["save_to_database"],
+      "transform": "generate_summary",
+      "params": {
+        "group_by": "sport"
+      }
+    }
+  ],
+  "output": {
+    "format": "json",
+    "include_metadata": true,
+    "save_to_db": true
+  }
+}

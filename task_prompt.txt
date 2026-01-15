@@ -1,0 +1,34 @@
+IMPORTANT: Use {PRIMARY_SOURCE_NAME} (Online Betting Guide) at {PRIMARY_SOURCE_URL} as your PRIMARY aggregator source for betting tips and match information.
+
+Step 1: Navigate to {PRIMARY_SOURCE_NAME}
+- Go to {PRIMARY_SOURCE_URL} and look for football/soccer betting tips
+- Focus on matches happening within the next 3 hours (from {current_time} to {target_time})
+
+Step 2: Gather Initial Data from {PRIMARY_SOURCE_NAME}
+- Look for accumulator tips or "acca" recommendations
+- Identify matches with highest confidence ratings from {PRIMARY_SOURCE_NAME} tipsters
+- Note the recommended bets and odds
+l
+
+Step 3: Research Further (if needed)
+- Cross-reference {PRIMARY_SOURCE_NAME} tips with additional sources if necessary
+- Verify match times and current odds
+- Confirm team form and recent performance
+
+Step 4: Compile Final List
+For each recommended match, extract:
+1. Match name (Team A vs Team B)
+2. Start time (must be within 3 hours)
+3. Recommended bet type (e.g., Home Win, Over 2.5, BTTS)
+4. Odds from {PRIMARY_SOURCE_NAME}
+5. Risk assessment (Low/Medium/High based on {PRIMARY_SOURCE_NAME} tipster confidence)
+6. {PRIMARY_SOURCE_NAME} tipster rating/confidence percentage
+7. Source URL from {PRIMARY_SOURCE_NAME}
+
+Step 5: Prioritize and Save
+- Organize results by risk level (lowest risk first)
+- Focus on matches suitable for accumulator betting
+- Limit to top 5-7 matches with best risk/reward ratio
+- Ensure all matches are within the 3-hour window
+
+STEALTH MODE: Human-like delays are built into all browser actions (clicks, typing, scrolling).
